@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tienda Virtual</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header class="topbar">
+  <div>
+    <h1>Tienda Virtual</h1>
+    <p class="subtitle">Gestor de productos · Herencia y polimorfismo en Python</p>
+  </div>
+  <div class="topbar-right">
+    <span class="badge">Valor del inventario: <strong>{{ inventory_value | money }}</strong></span>
+    <form method="post" action="{{ url_for('reset_store') }}"
+          onsubmit="return confirm('¿Restaurar los productos de ejemplo? Se vaciará el carrito.')">
+      <button class="btn ghost" type="submit">Restaurar ejemplo</button>
+    </form>
+  </div>
+</header>
+
+<main>
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for kind, message in messages %}
+      <div class="alert {{ kind }}">{{ message }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  {% if receipt %}
+  <section class="card receipt">
+    <h2>Recibo de compra</h2>
+    <pre>{{ receipt.as_text() }}</pre>
+    <a class="btn ghost" href="{{ url_for('index') }}">Cerrar</a>
+  </section>
+  {% endif %}
+
+  {% if details %}
+  {% set pid, p = details %}
+  <section class="card details">
+    <h2>{{ p.CATEGORY }}: {{ p.name }}</h2>
+    <ul>
+      <li><b>ID del producto:</b> {{ pid }}</li>
+      {% for part in p.description().split(" | ")[1:] %}<li>{{ part }}</li>{% endfor %}
+      <li><b>Precio de lista:</b> {{ p.price | money }}</li>
+      <li><b>Descuento promocional:</b> {{ p.discount_percentage | pct }}%</li>
+      {% if p.depreciated_price is defined %}<li><b>Precio depreciado:</b> {{ p.depreciated_price() | money }}</li>{% endif %}
+      <li><b>Descuento unitario:</b> {{ p.calculate_discount() | money }}</li>
+      <li><b>Precio final:</b> {{ p.calculate_final_price() | money }}</li>
+    </ul>
+    <p class="rule"><b>Regla de descuento:</b> {{ p.discount_rule() }}</p>
+    <a class="btn ghost" href="{{ url_for('index') }}">Cerrar</a>
+  </section>
+  {% endif %}
+
+  <div class="layout">
+    <section class="card">
+      <h2>{% if edit_id %}Editar producto {{ edit_id }}{% else %}Nuevo producto{% endif %}</h2>
+      <form method="post" id="product-form"
+            action="{{ url_for('update_product', product_id=edit_id) if edit_id else url_for('add_product') }}">
+        <input type="hidden" name="next" value="{{ url_for('index', edit=edit_id) if edit_id else url_for('index') }}">
+        <label>Categoría
+          <select name="category" id="category">
+            {% for c in categories %}
+              <option value="{{ c }}" {% if form.category == c %}selected{% endif %}>{{ c }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Nombre <input name="name" value="{{ form.name }}" maxlength="60" required></label>
+        <div class="row">
+          <label>Precio ($) <input name="price" value="{{ form.price }}" inputmode="decimal" required></label>
+          <label>Existencias <input name="stock" value="{{ form.stock }}" inputmode="numeric" required></label>
+        </div>
+        <label>Descuento promocional (%) <input name="discount" value="{{ form.discount }}" inputmode="decimal" placeholder="0"></label>
+
+        <fieldset class="cat-fields" data-category="Electrónica">
+          <legend>Electrónica</legend>
+          <div class="row">
+            <label>Garantía (meses) <input name="warranty" value="{{ form.warranty or '12' }}" inputmode="numeric"></label>
+            <label>Depreciación (%) <input name="depreciation" value="{{ form.depreciation or '10' }}" inputmode="decimal"></label>
+          </div>
+        </fieldset>
+        <fieldset class="cat-fields" data-category="Alimentos">
+          <legend>Alimentos</legend>
+          <label>Fecha de vencimiento <input type="date" name="expiration" value="{{ form.expiration }}"></label>
+        </fieldset>
+        <fieldset class="cat-fields" data-category="Ropa">
+          <legend>Ropa</legend>
+          <div class="row">
+            <label>Talla
+              <select name="size">
+                {% for s in sizes %}<option {% if form.size == s %}selected{% endif %}>{{ s }}</option>{% endfor %}
+              </select>
+            </label>
+            <label>Color <input name="color" value="{{ form.color }}"></label>
+          </div>
+        </fieldset>
+
+        <div class="actions">
+          <button class="btn primary" type="submit">{% if edit_id %}Guardar cambios{% else %}Agregar producto{% endif %}</button>
+          {% if edit_id %}<a class="btn ghost" href="{{ url_for('index') }}">Cancelar</a>{% endif %}
+        </div>
+      </form>
+    </section>
+
+    <section class="card wide">
+      <h2>Inventario ({{ products | length }})</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>ID</th><th>Nombre</th><th>Categoría</th><th class="num">Precio</th><th class="num">Stock</th>
+                <th class="num">Desc.</th><th class="num">Final</th><th>Acciones</th><th>Carrito</th></tr>
+          </thead>
+          <tbody>
+          {% for pid, p in products %}
+            <tr class="{{ 'selected' if pid == edit_id }}">
+              <td>{{ pid }}</td>
+              <td>{{ p.name }}{% if not p.is_sellable() %} <span class="tag">vencido</span>{% endif %}</td>
+              <td><span class="cat cat-{{ {'Electrónica': 'elec', 'Alimentos': 'food', 'Ropa': 'cloth'}[p.CATEGORY] }}">{{ p.CATEGORY }}</span></td>
+              <td class="num">{{ p.price | money }}</td>
+              <td class="num">{{ p.stock }}</td>
+              <td class="num">{{ p.discount_percentage | pct }}%</td>
+              <td class="num">{{ p.calculate_final_price() | money }}</td>
+              <td class="nowrap">
+                <a class="link" href="{{ url_for('index', view=pid) }}">Ver</a>
+                <a class="link" href="{{ url_for('index', edit=pid) }}">Editar</a>
+                <form class="inline" method="post" action="{{ url_for('delete_product', product_id=pid) }}"
+                      onsubmit="return confirm('¿Eliminar el producto {{ pid }}? Esta acción no se puede deshacer.')">
+                  <button class="link danger" type="submit">Eliminar</button>
+                </form>
+              </td>
+              <td>
+                <form class="inline add-cart" method="post" action="{{ url_for('add_to_cart') }}">
+                  <input type="hidden" name="product_id" value="{{ pid }}">
+                  <input class="qty" name="quantity" value="1" inputmode="numeric" aria-label="Cantidad">
+                  <button class="btn small" type="submit">Agregar</button>
+                </form>
+              </td>
+            </tr>
+          {% else %}
+            <tr><td colspan="9" class="empty">No hay productos registrados.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <section class="card" id="carrito">
+    <h2>Carrito de compras</h2>
+    <div class="cart-layout">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Producto</th><th>Cantidad</th><th class="num">Unitario</th><th class="num">Descuento</th>
+                <th class="num">Total</th><th></th></tr>
+          </thead>
+          <tbody>
+          {% for line in summary.lines %}
+            <tr>
+              <td>{{ line.product.name }}</td>
+              <td>
+                <form class="inline" method="post" action="{{ url_for('update_cart_quantity') }}">
+                  <input type="hidden" name="name" value="{{ line.product.name }}">
+                  <input class="qty" name="quantity" value="{{ line.quantity }}" inputmode="numeric" aria-label="Cantidad">
+                  <button class="link" type="submit">Actualizar</button>
+                </form>
+              </td>
+              <td class="num">{{ line.unit_price | money }}</td>
+              <td class="num">-{{ line.line_discount | money }}</td>
+              <td class="num">{{ line.line_total | money }}</td>
+              <td>
+                <form class="inline" method="post" action="{{ url_for('remove_from_cart') }}">
+                  <input type="hidden" name="name" value="{{ line.product.name }}">
+                  <button class="link danger" type="submit">Quitar</button>
+                </form>
+              </td>
+            </tr>
+          {% else %}
+            <tr><td colspan="6" class="empty">El carrito está vacío. Agregue productos desde el inventario.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="cart-side">
+        <form method="post" action="{{ url_for('apply_promotions') }}" class="promos">
+          <h3>Promociones</h3>
+          <div class="row">
+            <label>Descuento (%) <input name="discount" inputmode="decimal"
+                   value="{{ cart.discount_percentage | pct if cart.discount_percentage > zero else '' }}"></label>
+            <label>Cupón (%) <input name="coupon" inputmode="decimal"
+                   value="{{ cart.coupon | pct if cart.coupon is not none else '' }}"></label>
+          </div>
+          <label class="check"><input type="checkbox" name="premium" {% if cart.premium_customer %}checked{% endif %}> Cliente prémium (+5%)</label>
+          <button class="btn" type="submit">Aplicar</button>
+          <p class="muted">{{ promotions }}</p>
+        </form>
+
+        <dl class="totals">
+          <dt>Artículos</dt><dd>{{ summary.total_units }}</dd>
+          <dt>Subtotal</dt><dd>{{ summary.subtotal | money }}</dd>
+          <dt>Descuento total</dt><dd>-{{ summary.total_discount | money }}</dd>
+          <dt class="grand">Total final</dt><dd class="grand">{{ summary.total | money }}</dd>
+        </dl>
+        <div class="actions">
+          <form method="post" action="{{ url_for('checkout') }}"
+                onsubmit="return confirm('¿Completar esta compra simulada por {{ summary.total | money }}? No se procesará ningún pago real.')">
+            <button class="btn primary" type="submit" {% if summary.is_empty %}disabled{% endif %}>Finalizar compra</button>
+          </form>
+          <form method="post" action="{{ url_for('clear_cart') }}"
+                onsubmit="return confirm('¿Quitar todos los artículos del carrito?')">
+            <button class="btn ghost" type="submit" {% if summary.is_empty %}disabled{% endif %}>Vaciar carrito</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>Proyecto Fase 3 · Programación UNAD (213023) · Compra simulada, no se procesan pagos reales.</footer>
+</main>
+
+<script>
+  const category = document.getElementById("category");
+  function showCategoryFields() {
+    document.querySelectorAll(".cat-fields").forEach(fs => {
+      const active = fs.dataset.category === category.value;
+      fs.hidden = !active;
+      fs.disabled = !active;
+    });
+  }
+  category.addEventListener("change", showCategoryFields);
+  showCategoryFields();
+</script>
+</body>
+</html>

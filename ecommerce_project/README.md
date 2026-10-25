@@ -230,3 +230,22 @@ gui/ (Tkinter)  ──usa──>  services/  ──usa──>  models/
 - El pago es una simulación local: no se procesan pagos ni se solicitan datos bancarios.
 - No se puede crear un alimento con fecha de vencimiento pasada. Si un alimento vence mientras la aplicación está abierta, ya no se puede agregar al carrito.
 - La interfaz está diseñada para pantallas de 1366×768 o mayores.
+
+## 14. Versión web y publicación en internet
+
+Además de la aplicación de escritorio, el proyecto incluye una versión web (`web_app.py`, `templates/` y `static/`) hecha con **Flask**. Reutiliza sin cambios `models` y `services`; solo reemplaza Tkinter por páginas HTML. Cada visitante tiene su propio inventario y carrito (en memoria), con los 9 productos de ejemplo precargados.
+
+Ejecutarla localmente:
+
+```bash
+pip install -r requirements.txt
+python web_app.py        # abrir http://127.0.0.1:5000
+```
+
+Publicarla gratis en [Render](https://render.com):
+
+1. Subir el repositorio a GitHub (incluye `render.yaml` en la raíz).
+2. En Render: **New → Blueprint**, conectar la cuenta de GitHub y elegir el repositorio.
+3. Confirmar con **Apply**. Render instala las dependencias y entrega una dirección pública `https://tienda-virtual-xxxx.onrender.com`.
+
+En el plan gratuito el servidor se duerme tras 15 minutos sin visitas: la primera visita posterior tarda unos 30–60 segundos en cargar y los datos vuelven a los de ejemplo.

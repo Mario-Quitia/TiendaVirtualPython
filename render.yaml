@@ -1,0 +1,15 @@
+# Configuración para desplegar la versión web en Render (plan gratuito).
+services:
+  - type: web
+    name: tienda-virtual
+    runtime: python
+    plan: free
+    rootDir: ecommerce_project
+    buildCommand: pip install -r requirements.txt
+    # Un solo proceso: el inventario de cada visitante vive en la memoria del servidor.
+    startCommand: gunicorn web_app:app --workers 1 --threads 8 --bind 0.0.0.0:$PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: SECRET_KEY
+        generateValue: true
