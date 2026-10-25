@@ -207,7 +207,7 @@
         <div class="actions">
           <form method="post" action="{{ url_for('checkout') }}"
                 onsubmit="return confirm('¿Completar esta compra simulada por {{ summary.total | money }}? No se procesará ningún pago real.')">
-            <button class="btn primary" type="submit" {% if summary.is_empty %}disabled{% endif %}>Finalizar compra</button>
+            <button class="btn success" type="submit" {% if summary.is_empty %}disabled{% endif %}>Finalizar compra</button>
           </form>
           <form method="post" action="{{ url_for('clear_cart') }}"
                 onsubmit="return confirm('¿Quitar todos los artículos del carrito?')">
